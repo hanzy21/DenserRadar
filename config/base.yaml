@@ -1,0 +1,48 @@
+# Data
+data_root: /data/hanzeyu_kradar/
+device: cuda
+rawdata_folder: "tensors"
+cube_folder: "labels"
+
+size_doppler: 64
+size_range: 256
+size_elevation: 20
+size_azimuth: 107
+size_elevation_all: 37
+
+res_doppler: 0.06
+res_range: 0.4629
+res_elevation: 1
+res_azimuth: 1
+
+up_rate: 2
+
+
+# Model
+load_checkpoint: True
+weight_decay: 0.2
+drop_rate: 0.2
+
+
+# Pre-process
+max_labelpoints: 50000
+fps: False
+
+
+# Train
+epoch: 100
+batch_size: 4
+base_lr: 0.0002
+train_data: 0.8
+epochs_per_val: 10
+epochs_per_trans: 50
+
+
+# Post-process
+transform_thresh: [0.001,0.05,0.15,0.25,0.35,0.5,0.7,0.85,0.9,0.96]
+
+
+# Evaluate
+delta1: 0.5
+delta2: 0.3
+  
