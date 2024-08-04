@@ -15,8 +15,6 @@ class KRadar(Dataset):
         self.rawdata_list = []
         
         for segment in os.listdir(self.cfgs.data_root):
-            if segment != "1":
-                continue
             segment_path = os.path.join(self.cfgs.data_root, segment)
             if os.path.isdir(segment_path):
                 rawdata_path = os.path.join(segment_path, rawdata_name)
@@ -26,14 +24,10 @@ class KRadar(Dataset):
                 rawdatas = sorted([file for file in os.listdir(rawdata_path)])
                 
                 for name in labels:
-                    if (int(name[-6:-3])!=598):
-                        continue
                     if os.path.isfile(os.path.join(label_path, name)):
                         self.label_list.append(os.path.join(segment, label_name, name))
                         
                 for name in rawdatas:
-                    if (int(name[-6:-3])!=598):
-                        continue
                     if os.path.isfile(os.path.join(rawdata_path, name)):
                         self.rawdata_list.append(os.path.join(segment, rawdata_name, name))
                         

@@ -55,10 +55,10 @@ class Trainer:
         for i in tqdm(range(1,self.cfgs.epoch)):
             self.train(i)
                 
-            if i % self.cfgs.epochs_per_val == 0:
+            if i % self.cfgs.epochs_per_eval == 0:
                 self.eval(i)
             if i % self.cfgs.epochs_per_trans == 0:
-                self.val(i)
+                self.test(i)
                 self.transform(i)
     
     
@@ -101,10 +101,10 @@ class Trainer:
             out = self.model(rawdata)
             loss = self.criterion(out, label)
             Loss.append(loss.item())
-            self.print_grad_norms(self.model)
+            # self.print_grad_norms(self.model)
            
         self.eval_loss.append(np.mean(np.array(Loss)))
-        print("Eval  Loss: {:.4} \n".format(np.mean(np.array(Loss))))
+        print("\n Eval  Loss: {:.4} \n".format(np.mean(np.array(Loss))))
         
         plt.plot(self.eval_loss, label="Eval_loss")
         plt.savefig("loss/eval_loss.jpg")
@@ -117,6 +117,46 @@ class Trainer:
             self.min_eval_loss = self.eval_loss[-1]
         
         
+    def test(self, epoch):
+        self.model.eval()
+        results = np.zeros((3,101))
+        for label, rawdata, name in tqdm(self.test_loader):
+            name = name[0][-8:-3]
+            label = label.float().cuda()
+            rawdata = rawdata.float().cuda()
+            out = self.model(rawdata)
+            out = torch.sigmoid(out[0])
+            for i in range(out.shape[0]):
+                label_points = torch.nonzero(label[i,0,:,:,:])
+                label_points = index2coord_trans(label_points, self.cfgs.up_rate).cpu()
+                label_points = rea2xyz(label_points)
+                for thresh in self.cfgs.transform_thresh:
+                    selected = torch.where(out[i,0,:,:,:] > thresh, out[i,0,:,:,:], 0)
+                    selected = torch.nonzero(selected)
+                    if selected.shape[0] > 500000 or selected.shape[0] < 10:
+                        continue
+                    transformed_points = index2coord_trans(selected, self.cfgs.up_rate).cpu()
+                    transformed_points = rea2xyz(transformed_points)
+                    accuracy, density = metric(transformed_points, label_points)
+                    density = int(density*100)
+                    results[0,density] += 1
+                    results[1,density] += accuracy
+                    results[2,density] += transformed_points.shape[0]
+                    
+                    plt.figure()
+                    plt.scatter(transformed_points[:, 0], transformed_points[:, 1], c='b', marker='.', s=0.05)
+                    plt.scatter(label_points[:, 0], label_points[:, 1], c='r', marker='.', s=0.05)
+                    plt.savefig('loss/{}_{}_{}_generated_point_cloud.png'.format(epoch,thresh,name))
+                    plt.clf()
+                    
+        non_zero_indices = np.nonzero(results[0,:])[0]
+        results = results[:, non_zero_indices]
+        results[1,:] /= results[0,:]
+        results[2,:] /= results[0,:]
+        results[0,:] = np.array(non_zero_indices)
+        np.save("my_result.npy",results)
+        
+        
     def transform(self, epoch):
         self.model.eval()
         num = 0
@@ -127,20 +167,20 @@ class Trainer:
             out = self.model(rawdata)
             out = torch.sigmoid(out[0])
             
-            for thresh in self.cfgs.transform_thresh:
-                for i in range(out.shape[0]):
+            for i in range(out.shape[0]):
+                for thresh in self.cfgs.transform_thresh:
                     num += 1
                     selected = torch.where(out[i,0,:,:,:] > thresh, out[i,0,:,:,:], 0)
                     selected = torch.nonzero(selected)
-                    if selected.shape[0] > 100000 or selected.shape[0] < 10:
+                    if selected.shape[0] > 500000 or selected.shape[0] < 10:
                         continue
                     transformed_points = index2coord_trans(selected, self.cfgs.up_rate).cpu()
                     transformed_points = rea2xyz(transformed_points)
                     pcd = o3d.geometry.PointCloud()
                     pcd.points = o3d.utility.Vector3dVector(transformed_points)
-                    o3d.io.write_point_cloud("./thresh_{}_name_{}.pcd".format(thresh, name), pcd)
+                    o3d.io.write_point_cloud("./results/thresh_{}_name_{}_epoch_{}.pcd".format(thresh, name, epoch), pcd)
                     coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, 0])
-                    o3d.visualization.draw_geometries([pcd, coordinate_frame])
+                    # o3d.visualization.draw_geometries([pcd, coordinate_frame])
         print("save transform")
         
         
@@ -161,34 +201,6 @@ class Trainer:
                 print(f"Grad norm of {name}: {norm}")
                 
                 
-    def val(self, epoch):
-        self.model.eval()
-        for label, rawdata, _ in tqdm(self.test_loader):
-            label = label.float().cuda()
-            rawdata = rawdata.float().cuda()
-            out = self.model(rawdata)
-            out = torch.sigmoid(out[0])
-            for i in range(out.shape[0]):
-                label_points = torch.nonzero(label[i,0,:,:,:])
-                label_points = index2coord_trans(label_points, self.cfgs.up_rate).cpu()
-                label_points = rea2xyz(label_points)
-                for j in range(1000):
-                    thresh = j*0.001
-                    generated_points = torch.where(out[i,0,:,:,:] > thresh, out[i,0,:,:,:], 0)
-                    generated_points = torch.nonzero(generated_points)
-                    generated_points = index2coord_trans(generated_points, self.cfgs.up_rate).cpu()
-                    generated_points = rea2xyz(generated_points)
-                    accuracy, density = metric(generated_points, label_points)
-                    density = int(density*1000)
-                    results[0,density] += 1
-                    results[1,density] += accuracy
-                    results[2,density] += generated_points.shape[0]
-        non_zero_indices = np.nonzero(results[0,:])[0]
-        results = results[:, non_zero_indices]
-        results[1,:] /= results[0,:]
-        results[2,:] /= results[0,:]
-        results[0,:] = np.array(non_zero_indices)
-        np.save("my_result.npy",results)
         
         
 if __name__ == "__main__":
