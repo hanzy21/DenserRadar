@@ -62,7 +62,7 @@ If you find DenserRadar useful in your research or applications, please consider
 @article{han2024denserradar,
   title={DenserRadar: A 4D millimeter-wave radar point cloud detector based on dense LiDAR point clouds},
   author={Han, Zeyu and Jiang, Junkai and Ding, Xiaokang and Meng, Qingwen and Xu, Shaobing and He, Lei and Wang, Jianqiang},
-  journal={arXiv preprint arXiv:2405.05131},
+  journal={2024 IEEE 27th International Conference on Intelligent Transportation Systems (ITSC)},
   year={2024}
 }
 ```
